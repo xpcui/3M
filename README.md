@@ -6,18 +6,7 @@ Authors: Song Zhai, Judong Shen, Jason C. Hsu, and Xinping Cui
 
 Author of the code: Song Zhai (song.zhai@merck.com)
 
-===========================================================================================
-
-The code to reproduce the simulation and real data analysis results of the manuscript is demonstrated in the R markdown document reproduce_results_xxx.Rmd (saved in ./vignettes). The real data analysis results are based on IMPROVE-IT data, which cannot be shared due to privacy regulations. Therefore, we use a mockup data to illustrate the results.
--- reproduce_results_Fig2.Rmd: Code to reproduce Fig2
--- reproduce_results_Fig3.Rmd: Code to reproduce Fig3
--- reproduce_results_FigS1.Rmd: Code to reproduce FigS1
--- reproduce_results_FigS2.Rmd: Code to reproduce FigS2
--- reproduce_results_FigS4.Rmd: Code to reproduce FigS4
--- reproduce_results_FigS5.Rmd: Code to reproduce FigS5
--- reproduce_results_FigS6.Rmd: Code to reproduce FigS6
--- reproduce_results_FigS7.Rmd: Code to reproduce FigS7
--- reproduce_results_Tab2.Rmd: Code to generate results based on the IMPROVE-IT mockup data
+## R Functions
 
 The R functions can be found in ./R:
 -- Functions-Fig.R: Functions to generate plots
@@ -37,6 +26,19 @@ stats   graphics   grDevices   utils   datasets   methods   base
 
 other attached packages:
 ggplot2   dplyr   data.table   glmnet   gridExtra
+
+## Examples
+
+Examples to run functions can be found in ./vignettes:
+-- reproduce_results_Fig2.Rmd: Code to reproduce Fig2
+-- reproduce_results_Fig3.Rmd: Code to reproduce Fig3
+-- reproduce_results_FigS1.Rmd: Code to reproduce FigS1
+-- reproduce_results_FigS2.Rmd: Code to reproduce FigS2
+-- reproduce_results_FigS4.Rmd: Code to reproduce FigS4
+-- reproduce_results_FigS5.Rmd: Code to reproduce FigS5
+-- reproduce_results_FigS6.Rmd: Code to reproduce FigS6
+-- reproduce_results_FigS7.Rmd: Code to reproduce FigS7
+-- reproduce_results_Tab2.Rmd: Code to generate results based on the IMPROVE-IT mockup data
 
 The genotype data and the IMPROVE-IT mockup data can be found in ./Data.
 -- geno.Rdata: Genotype matrix for simulations
