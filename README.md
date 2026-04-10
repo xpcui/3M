@@ -17,19 +17,17 @@ The R functions can be found in **./R**:
 
 The code was produced with the following versions of R and packages:
 
-R version 4.4.1
+**R version 4.4.1**
 
 Platform: x86_64-w64-mingw32/x64 (64-bit)
 
 Running under: Windows 10 x64
 
-
-attached base packages:
+**attached base packages:**
 
 stats   graphics   grDevices   utils   datasets   methods   base
 
-
-other attached packages:
+**other attached packages:**
 
 ggplot2   dplyr   data.table   glmnet   gridExtra
 
