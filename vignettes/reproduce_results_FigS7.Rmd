@@ -1,0 +1,116 @@
+---
+title: Identifying the best predictive biomarker in pharmacogenomics through multiple comparisons with the best
+output:
+  html_document: default
+  mainfont: Times New Roman
+  fontsize: 12
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+```
+
+## LOAD PACKAGES AND FUNCTIONS
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(data.table)
+library(glmnet)
+library(gridExtra)
+```
+
+```{r}
+dir <- "~/PROJECT/Dissertation/Code/" # CHANGE IT TO YOUR OWN PATH
+
+source(paste0(dir,"Functions/Functions-IT_p1.R"))
+source(paste0(dir,"Functions/Functions-IT_p2.R"))
+source(paste0(dir,"Functions/Functions-Ranking.R"))
+source(paste0(dir,"Functions/Functions-LSmeans+MCB.R"))
+source(paste0(dir,"Functions/Functions-Fig.R"))
+```
+
+## LOAD THE GENOTYPE DATA
+
+```{r}
+load(paste0(dir,"Data/geno.Rdata"))
+```
+
+## SET SEED
+
+```{r}
+set.seed(11112)
+```
+
+## FIGURE S7
+
+rs429358 is the causal SNP that determine the drug response. However, rs429358 is not among the candidates, instead, rs4420638 (which is in high LD to rs429358) is included into the candidates. The power is defined as the probability that rs4420638 is identified as the best predictive SNP.
+
+```{r}
+Tr <- rbinom(nrow(G), 1, 0.5)
+
+Gx <- cbind.data.frame("chr19.rs7412.pos45412079"=g2, "chr19.rs4420638.pos44564995"=g3, G[,2301:2303]) %>% as.matrix()
+
+gamma = 1
+alpha = -6
+sigma = 3
+
+BETA = seq(1, 3, 0.5)
+NREP = 1:500
+```
+
+```{r}
+p11 <- p12 <- p13 <- p14 <- matrix(NA, ncol = length(BETA), nrow = length(NREP))
+
+for (k in 1:length(BETA)) {
+  beta = BETA[k]
+  print(paste0("beta = ",beta))
+  for (i in 1:length(NREP)) {
+    Y <- gamma*Tr + alpha*g1 + beta*(Tr*g1) + rnorm(nrow(Gx), 0, sigma)
+    
+    re1 <- LSmeans_MCB_est(Y, Tr, Gx)
+    re2 <- pvalue.rank(Y, Tr, Gx)
+    re3 <- Lasso(Y, Tr, Gx)
+    re4 <- IT(Y, Tr, Gx)
+    
+    p11[i,k] <- as.numeric(names(re1)[which.max(re1)] %in% c("chr19.rs4420638.pos44564995"))
+    p12[i,k] <- as.numeric(names(re2)[which.max(re2)] %in% c("chr19.rs4420638.pos44564995"))
+    p13[i,k] <- as.numeric(names(re3)[which.max(re3)] %in% c("chr19.rs4420638.pos44564995"))
+    p14[i,k] <- as.numeric(names(re4)[which.max(re4)] %in% c("chr19.rs4420638.pos44564995"))
+  }
+}
+
+colnames(p11) <- colnames(p12) <- colnames(p13) <- colnames(p14) <- BETA
+
+power <- cbind(p11,p12,p13,p14)
+```
+
+```{r}
+RE <- cbind.data.frame(n = rep(379, 4*length(BETA)),
+                       beta = rep(BETA, 4),
+                       method = rep(c("3M","P-value Ranking","Lasso","IT"),each=length(BETA)),
+                       mean = apply(power, 2, mean))
+```
+
+```{r warning=FALSE}
+p <- power_comp(RE, title="", legend.position="bottom")
+```
+
+```{r}
+dir2 <- "~/PROJECT/Dissertation/Code/Results/" # CHANGE IT TO YOUR OWN PATH
+
+ggsave(filename = paste0(dir2,"FigS7.png"), plot = p,
+       device = "png",
+       width = 30,
+       height = 30,
+       units = "cm",
+       dpi = 300,
+       limitsize = FALSE)
+```
+
+
+
+
+
+

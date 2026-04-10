@@ -1,0 +1,302 @@
+---
+title: Identifying the best predictive biomarker in pharmacogenomics through multiple comparisons with the best
+output:
+  html_document: default
+  mainfont: Times New Roman
+  fontsize: 12
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+```
+
+## LOAD PACKAGES AND FUNCTIONS
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(data.table)
+library(glmnet)
+library(gridExtra)
+```
+
+```{r}
+dir <- "~/PROJECT/Dissertation/Code/" # CHANGE IT TO YOUR OWN PATH
+
+source(paste0(dir,"Functions/Functions-IT_p1.R"))
+source(paste0(dir,"Functions/Functions-IT_p2.R"))
+source(paste0(dir,"Functions/Functions-Ranking.R"))
+source(paste0(dir,"Functions/Functions-LSmeans+MCB.R"))
+source(paste0(dir,"Functions/Functions-Fig.R"))
+```
+
+## LOAD THE GENOTYPE DATA
+
+```{r}
+load(paste0(dir,"Data/geno.Rdata"))
+```
+
+## PARAMETERS SETUP
+
+```{r}
+gamma = 1
+alpha = -6
+BETA = seq(1, 3, 0.5)
+N <- c(100, 379)
+index.n100 <- c(1:97, which(g1 != g3))
+NREP = 1:500
+```
+
+## SET SEED
+
+```{r}
+set.seed(1002)
+```
+
+## FIGURE 3A 
+
+rs429358 is the causal SNP that determine the drug response. The power is defined as the probability that rs429358 is identified as the best predictive SNP.
+
+```{r}
+Tr <- rbinom(nrow(G), 1, 0.5)
+
+Gx <- cbind.data.frame("chr19.rs429358.pos45411941"=g1, "chr19.rs7412.pos45412079"=g2, G[,2301:2303]) %>% as.matrix()
+
+sigma = 3
+```
+
+```{r}
+p11 <- p12 <- p13 <- p14 <- p21 <- p22 <- p23 <- p24 <- matrix(NA, ncol = length(BETA), nrow = length(NREP))
+
+for (n in N) {
+  for (k in 1:length(BETA)) {
+    beta = BETA[k]
+    print(paste0("n = ",n,", beta = ",beta))
+    for (i in 1:length(NREP)) {
+      Y <- gamma*Tr + alpha*g1 + beta*(Tr*g1) + rnorm(nrow(Gx), 0, sigma)
+      
+      if(n == 100){ 
+        Trx <- Tr[index.n100]; Gxx <- Gx[index.n100,]; Yx <- Y[index.n100]
+      
+        re1 <- LSmeans_MCB_est(Yx, Trx, Gxx)
+        re2 <- pvalue.rank(Yx, Trx, Gxx)
+        re3 <- Lasso(Yx, Trx, Gxx)
+        re4 <- IT(Yx, Trx, Gxx)
+        
+        p11[i,k] <- as.numeric(names(re1)[which.max(re1)] %in% c("chr19.rs429358.pos45411941")) 
+        p12[i,k] <- as.numeric(names(re2)[which.max(re2)] %in% c("chr19.rs429358.pos45411941")) 
+        p13[i,k] <- as.numeric(names(re3)[which.max(re3)] %in% c("chr19.rs429358.pos45411941")) 
+        p14[i,k] <- as.numeric(names(re4)[which.max(re4)] %in% c("chr19.rs429358.pos45411941")) 
+      }
+    
+      if(n == 379){ 
+        re1 <- LSmeans_MCB_est(Y, Tr, Gx)
+        re2 <- pvalue.rank(Y, Tr, Gx)
+        re3 <- Lasso(Y, Tr, Gx)
+        re4 <- IT(Y, Tr, Gx)
+      
+        p21[i,k] <- as.numeric(names(re1)[which.max(re1)] %in% c("chr19.rs429358.pos45411941"))
+        p22[i,k] <- as.numeric(names(re2)[which.max(re2)] %in% c("chr19.rs429358.pos45411941"))
+        p23[i,k] <- as.numeric(names(re3)[which.max(re3)] %in% c("chr19.rs429358.pos45411941"))
+        p24[i,k] <- as.numeric(names(re4)[which.max(re4)] %in% c("chr19.rs429358.pos45411941"))
+      }
+    }
+  }
+}
+
+colnames(p11) <- colnames(p12) <- colnames(p13) <- colnames(p14) <- colnames(p21) <- colnames(p22) <- colnames(p23) <- colnames(p24) <- BETA
+
+power <- cbind(p11,p12,p13,p14,p21,p22,p23,p24)
+```
+
+```{r}
+RE1 <- cbind.data.frame(n = rep(N, each=4*length(BETA)),
+                        beta = rep(BETA, 4*length(N)),
+                        method = rep(rep(c("3M","P-value Ranking","Lasso","IT"),each=length(BETA)),length(N)),
+                        mean = apply(power, 2, mean))
+```
+
+## FIGURE 3B
+
+rs429358 is the causal SNP that determine the drug response. rs4420638 (which is in high LD to rs429358) is also among the candidates. The power is defined as the probability that rs429358 or rs4420638 is identified as the best predictive SNP.
+
+```{r}
+Gx <- cbind.data.frame("chr19.rs429358.pos45411941"=g1, "chr19.rs7412.pos45412079"=g2, "chr19.rs4420638.pos44564995"=g3, G[,2301:2302]) %>% as.matrix()
+
+sigma = 3
+```
+
+```{r}
+p11 <- p12 <- p13 <- p14 <- p21 <- p22 <- p23 <- p24 <- matrix(NA, ncol = length(BETA), nrow = length(NREP))
+
+for (n in N) {
+  for (k in 1:length(BETA)) {
+    beta = BETA[k]
+    print(paste0("n = ",n,", beta = ",beta))
+    for (i in 1:length(NREP)) {
+      Y <- gamma*Tr + alpha*g1 + beta*(Tr*g1) + rnorm(nrow(Gx), 0, sigma)
+      
+      if(n == 100){ 
+        Trx <- Tr[index.n100]; Gxx <- Gx[index.n100,]; Yx <- Y[index.n100]
+        
+        re1 <- LSmeans_MCB_est(Yx, Trx, Gxx)
+        re2 <- pvalue.rank(Yx, Trx, Gxx)
+        re3 <- Lasso(Yx, Trx, Gxx)
+        re4 <- IT(Yx, Trx, Gxx)
+        
+        p11[i,k] <- as.numeric(names(re1)[which.max(re1)] %in% c("chr19.rs429358.pos45411941","chr19.rs4420638.pos44564995")) 
+        p12[i,k] <- as.numeric(names(re2)[which.max(re2)] %in% c("chr19.rs429358.pos45411941","chr19.rs4420638.pos44564995")) 
+        p13[i,k] <- as.numeric(names(re3)[which.max(re3)] %in% c("chr19.rs429358.pos45411941","chr19.rs4420638.pos44564995"))
+        p14[i,k] <- as.numeric(names(re4)[which.max(re4)] %in% c("chr19.rs429358.pos45411941","chr19.rs4420638.pos44564995"))
+      }
+    
+      if(n == 379){ 
+        re1 <- LSmeans_MCB_est(Y, Tr, Gx)
+        re2 <- pvalue.rank(Y, Tr, Gx)
+        re3 <- Lasso(Y, Tr, Gx)
+        re4 <- IT(Y, Tr, Gx)
+        
+        p21[i,k] <- as.numeric(names(re1)[which.max(re1)] %in% c("chr19.rs429358.pos45411941","chr19.rs4420638.pos44564995"))
+        p22[i,k] <- as.numeric(names(re2)[which.max(re2)] %in% c("chr19.rs429358.pos45411941","chr19.rs4420638.pos44564995"))
+        p23[i,k] <- as.numeric(names(re3)[which.max(re3)] %in% c("chr19.rs429358.pos45411941","chr19.rs4420638.pos44564995"))
+        p24[i,k] <- as.numeric(names(re4)[which.max(re4)] %in% c("chr19.rs429358.pos45411941","chr19.rs4420638.pos44564995"))
+      }
+    }
+  }
+}
+
+colnames(p11) <- colnames(p12) <- colnames(p13) <- colnames(p14) <- colnames(p21) <- colnames(p22) <- colnames(p23) <- colnames(p24) <- BETA
+
+power <- cbind(p11,p12,p13,p14,p21,p22,p23,p24)
+```
+
+```{r}
+RE2 <- cbind.data.frame(n = rep(N, each=4*length(BETA)),
+                        beta = rep(BETA, 4*length(N)),
+                        method = rep(rep(c("3M","P-value Ranking","Lasso","IT"),each=length(BETA)),length(N)),
+                        mean = apply(power, 2, mean))
+```
+
+## FIGURE 3C
+
+The power is defined as the probability that rs429358 is identified as the best predictive SNP.
+
+```{r}
+Gx <- cbind.data.frame("chr19.rs429358.pos45411941"=g1, "chr19.rs7412.pos45412079"=g2, G[,2301:2303]) %>% as.matrix()
+
+sigma = 6
+```
+
+```{r}
+p11 <- p12 <- p13 <- p14 <- matrix(NA, ncol = length(BETA), nrow = length(NREP))
+
+for (k in 1:length(BETA)) {
+  beta = BETA[k]
+  print(paste0("beta = ",beta))
+  for (i in 1:length(NREP)) {
+    Y <- gamma*Tr + alpha*g1 + beta*(Tr*g1) + rnorm(nrow(Gx), 0, sigma)
+    
+    re1 <- LSmeans_MCB_est(Y, Tr, Gx)
+    re2 <- pvalue.rank(Y, Tr, Gx)
+    re3 <- Lasso(Y, Tr, Gx)
+    re4 <- IT(Y, Tr, Gx)
+    
+    p11[i,k] <- as.numeric(names(re1)[which.max(re1)] %in% c("chr19.rs429358.pos45411941"))
+    p12[i,k] <- as.numeric(names(re2)[which.max(re2)] %in% c("chr19.rs429358.pos45411941"))
+    p13[i,k] <- as.numeric(names(re3)[which.max(re3)] %in% c("chr19.rs429358.pos45411941"))
+    p14[i,k] <- as.numeric(names(re4)[which.max(re4)] %in% c("chr19.rs429358.pos45411941"))
+  }
+}
+
+colnames(p11) <- colnames(p12) <- colnames(p13) <- colnames(p14) <- BETA
+
+power <- cbind(p11,p12,p13,p14)
+```
+
+```{r}
+RE3 <- cbind.data.frame(n = rep(379, 4*length(BETA)),
+                        beta = rep(BETA, 4),
+                        method = rep(c("3M","P-value Ranking","Lasso","IT"),each=length(BETA)),
+                        mean = apply(power, 2, mean))
+```
+
+## FIGURE 3D 
+
+The power is defined as the probability that rs429358 or rs4420638 (in high LD to rs429358) is identified as the best predictive SNP.
+
+```{r}
+Gx <- cbind.data.frame("chr19.rs429358.pos45411941"=g1, "chr19.rs7412.pos45412079"=g2, "chr19.rs4420638.pos44564995"=g3, G[,2301:2302]) %>% as.matrix()
+
+sigma = 6
+```
+
+```{r}
+p11 <- p12 <- p13 <- p14 <- matrix(NA, ncol = length(BETA), nrow = length(NREP))
+
+for (k in 1:length(BETA)) {
+  beta = BETA[k]
+  print(paste0("beta = ",beta))
+  for (i in 1:length(NREP)) {
+    Y <- gamma*Tr + alpha*g1 + beta*(Tr*g1) + rnorm(nrow(Gx), 0, sigma)
+    
+    re1 <- LSmeans_MCB_est(Y, Tr, Gx)
+    re2 <- pvalue.rank(Y, Tr, Gx)
+    re3 <- Lasso(Y, Tr, Gx)
+    re4 <- IT(Y, Tr, Gx)
+    
+    p11[i,k] <- as.numeric(names(re1)[which.max(re1)] %in% c("chr19.rs429358.pos45411941","chr19.rs4420638.pos44564995"))
+    p12[i,k] <- as.numeric(names(re2)[which.max(re2)] %in% c("chr19.rs429358.pos45411941","chr19.rs4420638.pos44564995"))
+    p13[i,k] <- as.numeric(names(re3)[which.max(re3)] %in% c("chr19.rs429358.pos45411941","chr19.rs4420638.pos44564995"))
+    p14[i,k] <- as.numeric(names(re4)[which.max(re4)] %in% c("chr19.rs429358.pos45411941","chr19.rs4420638.pos44564995"))
+  }
+}
+
+colnames(p11) <- colnames(p12) <- colnames(p13) <- colnames(p14) <- BETA
+
+power <- cbind(p11,p12,p13,p14)
+```
+
+```{r}
+RE4 <- cbind.data.frame(n = rep(379, 4*length(BETA)),
+                        beta = rep(BETA, 4),
+                        method = rep(c("3M","P-value Ranking","Lasso","IT"),each=length(BETA)),
+                        mean = apply(power, 2, mean))
+```
+
+## FIGURE 3 (COMBINED)
+
+```{r warning=FALSE}
+g_legend <- function(a.gplot){
+  tmp <- ggplot_gtable(ggplot_build(a.gplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
+}
+
+px <- power_comp_legend(RE1, title="A", legend.position="bottom")
+
+mylegend <- g_legend(px)
+```
+
+```{r warning=FALSE}
+p1 <- power_comp(RE1, title="A", legend.position="none")
+p2 <- power_comp(RE2, title="B", legend.position="none")
+p3 <- power_comp(RE3, title="C", legend.position="none")
+p4 <- power_comp(RE4, title="D", legend.position="none")
+
+p0 = grid.arrange(p1, p2, p3, p4, mylegend, layout_matrix = rbind(c(1,1,3), c(2,2,4), c(5,5,5)), heights = c(5,5,1))
+```
+
+```{r}
+dir2 <- "~/PROJECT/Dissertation/Code/Results/" # CHANGE IT TO YOUR OWN PATH
+
+ggsave(filename = paste0(dir2,"Fig3.png"), plot = p0,
+       device = "png",
+       width = 40,
+       height = 35,
+       units = "cm",
+       dpi = 300,
+       limitsize = FALSE)
+```
+

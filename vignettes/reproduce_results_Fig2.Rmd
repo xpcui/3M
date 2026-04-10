@@ -1,0 +1,102 @@
+---
+title: Identifying the best predictive biomarker in pharmacogenomics through multiple comparisons with the best
+output:
+  html_document: default
+  mainfont: Times New Roman
+  fontsize: 12
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+```
+
+## LOAD PACKAGES AND FUNCTIONS
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(data.table)
+library(glmnet)
+library(gridExtra)
+```
+
+```{r}
+dir <- "~/PROJECT/Dissertation/Code/" # CHANGE IT TO YOUR OWN PATH
+
+source(paste0(dir,"Functions/Functions-IT_p1.R"))
+source(paste0(dir,"Functions/Functions-IT_p2.R"))
+source(paste0(dir,"Functions/Functions-Ranking.R"))
+source(paste0(dir,"Functions/Functions-LSmeans+MCB.R"))
+source(paste0(dir,"Functions/Functions-Fig.R"))
+```
+
+## LOAD THE GENOTYPE DATA
+
+```{r}
+load(paste0(dir,"Data/geno.Rdata"))
+```
+
+## SET SEED
+
+```{r}
+set.seed(55556)
+```
+
+## FIGURE 2
+
+```{r}
+Gx <- cbind.data.frame("chr19.rs429358.pos45411941"=g1, "chr19.rs7412.pos45412079"=g2, G[,2301:2303]) %>% as.matrix()
+
+Tr <- rbinom(nrow(Gx), 1, 0.5)
+
+gamma = 1
+alpha = -6
+sigma = 3
+
+BETA = seq(1, 1.5, 0.1)
+NREP = 1:2000
+```
+
+```{r}
+Err1 <- Err2 <- Err3 <- matrix(NA, ncol = length(BETA), nrow = length(NREP))
+
+for (k in 1:length(BETA)) {
+  beta <- BETA[k]
+  print(paste0("beta = ", beta))
+  for (i in 1:length(NREP)) {
+    Y <- gamma*Tr + alpha*g1 + beta*(Tr*g1) + rnorm(nrow(Gx), 0, sigma)
+    
+    re <- LSmeans_MCB(Y, Tr, Gx, alpha = 0.05, nboot = 200)
+    
+    Err1[i,k] <- ((sum(re$lowerbound == 0) > 0) & (!"chr19.rs429358.pos45411941" %in% re$SNPID[which(re$lowerbound == 0)])) %>% as.numeric() # Error A
+    Err2[i,k] <- ("chr19.rs429358.pos45411941" %in% re$SNPID[which(re$upperbound == 0)]) %>% as.numeric() # Error B
+    Err3[i,k] <- ((Err1[i,k]+Err2[i,k]) > 0) %>% as.numeric() # Error A U B
+  }
+}
+
+colnames(Err1) <- colnames(Err2) <- colnames(Err3) <- BETA
+error <- cbind(Err1, Err2, Err3)
+```
+
+```{r}
+mean = apply(error, 2, mean)
+
+p <- error_comp(mean, BETA)
+```
+
+```{r}
+dir2 <- "~/PROJECT/Dissertation/Code/Results/" # CHANGE IT TO YOUR OWN PATH
+
+ggsave(filename = paste0(dir2,"Fig2.png"), plot = p,
+       device = "png",
+       width = 40,
+       height = 25,
+       units = "cm",
+       dpi = 300,
+       limitsize = FALSE)
+```
+
+
+
+

@@ -1,0 +1,103 @@
+---
+title: Identifying the best predictive biomarker in pharmacogenomics through multiple comparisons with the best
+output:
+  html_document: default
+  mainfont: Times New Roman
+  fontsize: 12
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+```
+
+## LOAD PACKAGES AND FUNCTIONS
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(data.table)
+library(glmnet)
+library(gridExtra)
+```
+
+```{r}
+dir <- "~/PROJECT/Dissertation/Code/" # CHANGE IT TO YOUR OWN PATH
+
+source(paste0(dir,"Functions/Functions-IT_p1.R"))
+source(paste0(dir,"Functions/Functions-IT_p2.R"))
+source(paste0(dir,"Functions/Functions-Ranking.R"))
+source(paste0(dir,"Functions/Functions-LSmeans+MCB.R"))
+source(paste0(dir,"Functions/Functions-Fig.R"))
+```
+
+## LOAD THE GENOTYPE DATA
+
+```{r}
+load(paste0(dir,"Data/geno.Rdata"))
+```
+
+## SET SEED
+
+```{r}
+set.seed(106)
+```
+
+## FIGURE S2 
+
+```{r}
+Tr <- rbinom(nrow(G), 1, 0.5)
+
+Gx <- cbind.data.frame("chr19.rs429358.pos45411941"=g1, G[,2301:2304]) %>% as.matrix()
+
+gamma = 1; alpha = -6; beta = 1; sigma = 3
+
+N <- seq(100,800,100)
+
+nrep = 1000
+```
+
+```{r}
+est <- matrix(NA, ncol = length(N), nrow = nrep)
+
+for (k in 1:length(N)) {
+  n <- N[k]
+  print(paste0("n = ",n))
+  
+  index.boot <- sample(1:nrow(Gx), n, replace = TRUE)
+  Gxx <- Gx[index.boot,]
+  Trx <- Tr[index.boot]
+  g1x <- g1[index.boot]
+  
+  for (i in 1:nrep) {
+    Y <- gamma*Trx + alpha*g1x + beta*(Trx*g1x) + rnorm(nrow(Gxx), 0, sigma)
+    
+    re <- LSmeans_MCB_est(Y, Trx, Gxx)
+    
+    est[i,k] <- re[1]
+  }
+}
+
+colnames(est) <- N
+```
+
+```{r}
+p <- plot.est(est, N)
+```
+
+```{r}
+dir2 <- "~/PROJECT/Dissertation/Code/Results/" # CHANGE IT TO YOUR OWN PATH
+
+ggsave(filename = paste0(dir2,"FigS2.png"), plot = p,
+       device = "png",
+       width = 30,
+       height = 20,
+       units = "cm",
+       dpi = 300,
+       limitsize = FALSE)
+```
+
+
+
+
+

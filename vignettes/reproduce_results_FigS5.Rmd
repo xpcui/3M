@@ -1,0 +1,148 @@
+---
+title: Identifying the best predictive biomarker in pharmacogenomics through multiple comparisons with the best
+output:
+  html_document: default
+  mainfont: Times New Roman
+  fontsize: 12
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+```
+
+## LOAD PACKAGES AND FUNCTIONS
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(data.table)
+library(glmnet)
+library(gridExtra)
+```
+
+```{r}
+dir <- "~/PROJECT/Dissertation/Code/" # CHANGE IT TO YOUR OWN PATH
+
+source(paste0(dir,"Functions/Functions-IT_p1.R"))
+source(paste0(dir,"Functions/Functions-IT_p2.R"))
+source(paste0(dir,"Functions/Functions-Ranking.R"))
+source(paste0(dir,"Functions/Functions-LSmeans+MCB.R"))
+source(paste0(dir,"Functions/Functions-Fig.R"))
+```
+
+## LOAD THE GENOTYPE DATA
+
+```{r}
+load(paste0(dir,"Data/geno.Rdata"))
+```
+
+## SET SEED
+
+```{R}
+set.seed(10086)
+```
+
+## FIGURE S5 
+
+rs429358 is the causal SNP that determine the drug response. The power is defined as the probability that rs429358 is identified as the best predictive SNP.
+
+```{r}
+Tr <- rbinom(nrow(G), 1, 0.5)
+
+Gx <- cbind.data.frame("chr19.rs429358.pos45411941"=g1, "chr19.rs7412.pos45412079"=g2, G[,2301:2303]) %>% as.matrix()
+
+gamma = 1
+alpha = -6
+sigma = 3
+
+N <- c(379, 500, 1000)
+BETA = c(3, 4, 5)
+NREP = 1:500
+```
+
+```{r}
+p11 <- p12 <- p13 <- p14 <- p21 <- p22 <- p23 <- p24 <- p31 <- p32 <- p33 <- p34 <- matrix(NA, ncol = length(BETA), nrow = length(NREP))
+
+for (n in N) {
+  for (k in 1:length(BETA)) {
+    beta = BETA[k]
+    print(paste0("n = ",n,", beta = ",beta))
+    for (i in 1:length(NREP)) {
+      if(n == 379){ 
+        Trx <- Tr
+        Gxx <- Gx
+        g1x <- g1
+        Y <- gamma*Trx + alpha*g1x + beta*(Trx*g1x) + rnorm(nrow(Gxx), 0, sigma)
+      }
+    
+      if(n == 500){ 
+        index.boot <- sample(1:nrow(Gx), n, replace = TRUE)
+        Gxx <- Gx[index.boot,]
+        Trx <- Tr[index.boot]
+        g1x <- g1[index.boot]
+        
+        Y <- gamma*Trx + alpha*g1x + beta*(Trx*g1x) + rnorm(nrow(Gxx), 0, sigma)
+      }
+      
+      if(n == 1000){ 
+        index.boot <- sample(1:nrow(Gx), n, replace = TRUE)
+        Gxx <- Gx[index.boot,]
+        Trx <- Tr[index.boot]
+        g1x <- g1[index.boot]
+        
+        Y <- gamma*Trx + alpha*g1x + beta*(Trx*g1x) + rnorm(nrow(Gxx), 0, sigma)
+      }
+      
+      re1 <- LSmeans_MCB_est(Y, Trx, Gxx)
+      re2 <- pvalue.rank(Y, Trx, Gxx)
+      re3 <- Lasso(Y, Trx, Gxx)
+      re4 <- IT(Y, Trx, Gxx)
+      
+      if(n == 379){
+        p11[i,k] <- as.numeric(names(re1)[which.max(re1)] %in% c("chr19.rs429358.pos45411941"))
+        p12[i,k] <- as.numeric(names(re2)[which.max(re2)] %in% c("chr19.rs429358.pos45411941"))
+        p13[i,k] <- as.numeric(names(re3)[which.max(re3)] %in% c("chr19.rs429358.pos45411941"))
+        p14[i,k] <- as.numeric(names(re4)[which.max(re4)] %in% c("chr19.rs429358.pos45411941"))
+      }
+      if(n == 500){
+        p21[i,k] <- as.numeric(names(re1)[which.max(re1)] %in% c("chr19.rs429358.pos45411941"))
+        p22[i,k] <- as.numeric(names(re2)[which.max(re2)] %in% c("chr19.rs429358.pos45411941"))
+        p23[i,k] <- as.numeric(names(re3)[which.max(re3)] %in% c("chr19.rs429358.pos45411941"))
+        p24[i,k] <- as.numeric(names(re4)[which.max(re4)] %in% c("chr19.rs429358.pos45411941"))
+      }
+      if(n == 1000){
+        p31[i,k] <- as.numeric(names(re1)[which.max(re1)] %in% c("chr19.rs429358.pos45411941"))
+        p32[i,k] <- as.numeric(names(re2)[which.max(re2)] %in% c("chr19.rs429358.pos45411941"))
+        p33[i,k] <- as.numeric(names(re3)[which.max(re3)] %in% c("chr19.rs429358.pos45411941"))
+        p34[i,k] <- as.numeric(names(re4)[which.max(re4)] %in% c("chr19.rs429358.pos45411941"))
+      }
+    }
+  }
+}
+
+colnames(p11) <- colnames(p12) <- colnames(p13) <- colnames(p14) <- colnames(p21) <- colnames(p22) <- colnames(p23) <- colnames(p24) <- colnames(p31) <- colnames(p32) <- colnames(p33) <- colnames(p34) <- BETA
+
+power <- cbind(p11,p12,p13,p14,p21,p22,p23,p24,p31,p32,p33,p34)
+```
+
+```{r warning=FALSE}
+mean0 <- apply(power, 2, mean)
+
+p <- plot.bar(mean0)
+```
+
+```{r}
+dir2 <- "~/PROJECT/Dissertation/Code/Results/" # CHANGE IT TO YOUR OWN PATH
+
+ggsave(filename = paste0(dir2,"FigS5.png"), plot = p,
+       device = "png",
+       width = 30,
+       height = 40,
+       units = "cm",
+       dpi = 300,
+       limitsize = FALSE)
+```
+
+
+

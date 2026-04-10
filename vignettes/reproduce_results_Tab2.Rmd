@@ -1,0 +1,66 @@
+---
+title: Identifying the best predictive biomarker in pharmacogenomics through multiple comparisons with the best
+output:
+  html_document: default
+  mainfont: Times New Roman
+  fontsize: 12
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+```
+
+## LOAD PACKAGES AND FUNCTIONS
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(data.table)
+library(glmnet)
+library(gridExtra)
+```
+
+```{r}
+dir <- "~/PROJECT/Dissertation/Code/" # CHANGE IT TO YOUR OWN PATH
+
+source(paste0(dir,"Functions/Functions-IT_p1.R"))
+source(paste0(dir,"Functions/Functions-IT_p2.R"))
+source(paste0(dir,"Functions/Functions-Ranking.R"))
+source(paste0(dir,"Functions/Functions-LSmeans+MCB.R"))
+source(paste0(dir,"Functions/Functions-Fig.R"))
+```
+
+## LOAD THE GENOTYPE DATA
+
+```{r}
+load(paste0(dir,"Data/geno.Rdata"))
+```
+
+## SET SEED
+
+```{r}
+set.seed(88888)
+```
+
+## TABLE 2 (BASED ON THE IMPROVE-IT MOCKUP DATA)
+
+```{r}
+load(paste0(dir,"Data/IMPROVE-IT/mockup.Rdata"))
+    
+re <- LSmeans_MCB(Y, Tr, Gx, alpha = 0.05, nboot = 200)
+
+re
+
+# The best predictive SNP (i.e., rs114462013) is identified by 3M method (with lower bound of CI = 0) when applied to the IMPROVE-IT mockup data. 
+```
+
+```{r}
+dir2 <- "~/PROJECT/Dissertation/Code/Results/" # CHANGE IT TO YOUR OWN PATH
+
+write.csv(re, file = paste0(dir2,"Tab2.csv"), row.names = FALSE)
+```
+
+
+
+
